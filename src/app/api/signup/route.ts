@@ -4,9 +4,15 @@ import { db } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 
 const SignupSchema = z.object({
-  name: z.string().min(1, 'Name is required.'),
+  name: z
+    .string()
+    .min(3, 'Name must be at least 3 characters.')
+    .max(70, 'Name must be at most 70 characters.'),
   email: z.string().email('Invalid email address.'),
-  city: z.string().min(1, 'City is required.'),
+  city: z
+    .string()
+    .min(3, 'City must be at least 3 characters.')
+    .max(70, 'City must be at most 70 characters.'),
   zip: z
     .string()
     .optional()
@@ -14,6 +20,20 @@ const SignupSchema = z.object({
   role: z.enum(['VENDOR', 'SUPPORTER'], {
     errorMap: () => ({ message: 'Please select a role.' }),
   }),
+  businessName: z
+    .string()
+    .min(3, 'Business Name must be at least 3 characters.')
+    .max(100, 'Business Name must be at most 100 characters.'),
+  contact: z
+    .string()
+    .refine((val) => {
+      const digits = val.replace(/\D/g, '')
+      return digits.length === 10
+    }, 'Contact must be a valid 10-digit U.S. phone number.'),
+  state: z
+    .string()
+    .min(3, 'State must be at least 3 characters.')
+    .max(70, 'State must be at most 70 characters.'),
 })
 
 export async function POST(req: NextRequest) {
@@ -41,8 +61,22 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const digits = data.contact.replace(/\D/g, '')
+  const formattedContact = digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')  
+
   try {
-    const record = await db.preRegistration.create({ data })
+    const record = await db.preRegistration.create({
+      data: {
+        name:         data.name,
+        email:        data.email,
+        city:         data.city,
+        zip:          data.zip,
+        role:         data.role,
+        businessName: data.businessName,
+        contact:      formattedContact,
+        state:        data.state,
+      },
+    })
     return NextResponse.json({ id: record.id }, { status: 201 })
   } catch (err: unknown) {
     if (
@@ -64,4 +98,3 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-
